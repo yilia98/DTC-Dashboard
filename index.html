@@ -301,6 +301,35 @@ tfoot td:first-child{text-align:left}
 .upload-zone-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px}
 .upload-zone-sub{font-size:12px;color:var(--muted)}
 
+/* ── Collaboration ── */
+.collab-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}
+.collab-pill.warn{background:#fff7ed;border-color:#fed7aa;color:#c2410c}
+.collab-pill.offline{background:#f8fafc;border-color:#e2e8f0;color:#64748b}
+.collab-panel{display:grid;grid-template-columns:1.35fr .95fr;gap:14px;margin-bottom:16px}
+.collab-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:var(--shadow);padding:16px}
+.collab-card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.collab-card-title strong{font-size:14px;color:var(--navy)}
+.collab-meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.collab-meta-kpi{background:#f8fafc;border-radius:10px;padding:10px 12px}
+.collab-meta-kpi-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px}
+.collab-meta-kpi-value{font-size:16px;font-weight:800;color:var(--navy)}
+.collab-meta-sub{font-size:11px;color:var(--muted);line-height:1.6}
+.collab-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.collab-history-list{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto}
+.collab-history-item{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #edf2f7}
+.collab-history-item strong{display:block;font-size:12px;color:var(--navy);margin-bottom:3px}
+.collab-history-item span{display:block;font-size:11px;color:var(--muted);line-height:1.5}
+.collab-auth-card{position:fixed;top:92px;right:28px;z-index:400;width:360px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 60px rgba(15,23,42,.16);padding:18px}
+.collab-auth-card.hidden{display:none}
+.collab-auth-row{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.collab-auth-row label{font-size:11px;font-weight:700;color:var(--muted)}
+.collab-auth-row input{width:100%;border:1px solid #d0d7e2;border-radius:8px;padding:10px 12px;font-size:13px;outline:none}
+.collab-auth-row input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.collab-auth-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}
+.collab-auth-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.collab-empty{font-size:12px;color:var(--muted);text-align:center;padding:24px 12px}
+.collab-sync-note{font-size:11px;color:var(--muted);margin-top:8px}
+
 /* ── Inventory cards ── */
 .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .inv-card{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--gray-m);transition:transform .15s}
@@ -574,6 +603,8 @@ tfoot td:first-child{text-align:left}
     </div>
     <div class="topbar-right">
       <span style="font-size:11px;color:var(--muted)" id="topbar-period"><!-- period --></span>
+      <span class="collab-pill offline" id="collab-topbar-pill">团队模式 · 本地</span>
+      <button class="btn btn-ghost btn-sm" id="collab-auth-btn" onclick="toggleCollabAuthCard()">协作登录</button>
       <button class="btn btn-blue btn-sm" onclick="switchPage('inventory')">⬆ 上传数据</button>
     </div>
   </div>
@@ -805,6 +836,70 @@ tfoot td:first-child{text-align:left}
 
   <!-- ══ PAGE: 库存管理 ══ -->
   <div class="page" id="page-inventory">
+
+  <div class="collab-panel">
+    <div class="collab-card">
+      <div class="collab-card-title">
+        <strong>团队库存协作台</strong>
+        <span class="collab-pill offline" id="collab-panel-pill">离线预览</span>
+      </div>
+      <div class="collab-meta-sub" id="collab-panel-summary">当前还是本地预览模式。部署到 Netlify 后，这里会显示团队共享的最新库存版本、上传人和同步状态。</div>
+      <div class="collab-meta-grid">
+        <div class="collab-meta-kpi">
+          <div class="collab-meta-kpi-label">最新版本</div>
+          <div class="collab-meta-kpi-value" id="collab-version-label">LOCAL</div>
+        </div>
+        <div class="collab-meta-kpi">
+          <div class="collab-meta-kpi-label">最后上传人</div>
+          <div class="collab-meta-kpi-value" id="collab-owner-label">未同步</div>
+        </div>
+        <div class="collab-meta-kpi">
+          <div class="collab-meta-kpi-label">共享行数</div>
+          <div class="collab-meta-kpi-value" id="collab-rowcount-label">0</div>
+        </div>
+      </div>
+      <div class="collab-actions">
+        <button class="btn btn-blue btn-sm" onclick="syncLatestInventoryFromCloud()">拉取团队最新</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadSharedInventory()">下载最新数据</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleCollabAuthCard()">登录 / 切换账号</button>
+      </div>
+      <div class="collab-sync-note" id="collab-sync-note">库存表上传后会自动同步到团队版本。页面样式、功能和结构仍只通过 GitHub + Netlify 发布更新。</div>
+    </div>
+    <div class="collab-card">
+      <div class="collab-card-title">
+        <strong>最近上传记录</strong>
+        <span style="font-size:11px;color:var(--muted)" id="collab-user-label">未登录</span>
+      </div>
+      <div class="collab-history-list" id="collab-history-list">
+        <div class="collab-empty">暂无线上同步记录</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="collab-auth-card hidden" id="collab-auth-card">
+    <div class="collab-card-title" style="margin-bottom:14px">
+      <strong>团队协作登录</strong>
+      <button class="btn btn-ghost btn-sm" onclick="closeCollabAuthCard()">关闭</button>
+    </div>
+    <div class="collab-auth-row">
+      <label for="collab-name">姓名</label>
+      <input id="collab-name" placeholder="用于展示上传记录">
+    </div>
+    <div class="collab-auth-row">
+      <label for="collab-email">邮箱</label>
+      <input id="collab-email" type="email" placeholder="name@company.com">
+    </div>
+    <div class="collab-auth-row">
+      <label for="collab-password">密码</label>
+      <input id="collab-password" type="password" placeholder="请输入密码">
+    </div>
+    <div class="collab-auth-actions">
+      <button class="btn btn-blue btn-sm" onclick="collabLogin()">登录</button>
+      <button class="btn btn-outline btn-sm" id="collab-signup-btn" onclick="collabSignup()">注册协作者</button>
+      <button class="btn btn-ghost btn-sm" onclick="collabLogout()">退出登录</button>
+    </div>
+    <div class="collab-auth-note" id="collab-auth-note">建议把 Netlify Identity 设置为 Invite only。这样团队成员可以上传、下载和查看最新数据，但 UI、页面和功能仍只有你通过代码发布修改。</div>
+  </div>
     
   <!-- Upload: two brand zones -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:4px">
@@ -2974,6 +3069,7 @@ const DEFAULT_STATE = {
   ],
   inventory:[],
   invLastUpload:null,
+  shared:{inventoryVersion:null,inventoryUploadedAt:null,inventoryUploadedBy:null},
   actions:[],
   _skuId:0,
   _actionId:0,
@@ -2993,6 +3089,22 @@ let gMarket = 'all';
 let gCategory = 'all';
 let showOffline = false;
 let catalogSort = {col:null, dir:1};
+const COLLAB_API_BASE = location.protocol === 'file:' ? null : '';
+const COLLAB_API = {
+  latest: '/api/inventory/latest',
+  history: '/api/inventory/history',
+  publish: '/api/inventory/publish',
+  download: '/api/inventory/download'
+};
+const COLLAB = {
+  identity: null,
+  ready: false,
+  user: null,
+  settings: null,
+  latest: null,
+  history: [],
+  syncing: false
+};
 
 const CAT_MAP = {
   '清洗机':'车库','壁挂吸尘器':'车库','空压机':'车库','气管绕管器':'车库',
@@ -3029,6 +3141,7 @@ function loadState(){
   } else {
     S=JSON.parse(JSON.stringify(PRESET_DATA));
   }
+  if(!S.shared) S.shared = {inventoryVersion:null,inventoryUploadedAt:null,inventoryUploadedBy:null};
   if(S.inventory && S.inventory.length) S.inventory.forEach(calcDaysSupply);
 }
 function scheduleSave(){
@@ -3051,6 +3164,332 @@ function exportState(){
   const blob = new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='品类看板数据_'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+}
+
+function collabApiUrl(path){
+  if(!COLLAB_API_BASE) return null;
+  return COLLAB_API_BASE + path;
+}
+
+function collabDisplayName(user){
+  if(!user) return '未登录';
+  return user.user_metadata?.full_name || user.name || user.email || '协作者';
+}
+
+function updateSharedMetaFromSnapshot(snapshot){
+  if(!snapshot) return;
+  const uploadedAt = snapshot.uploadedAt || null;
+  const uploadedBy = snapshot.uploadedBy?.name || snapshot.uploadedBy?.email || '未记录';
+  S.shared = {
+    inventoryVersion: snapshot.versionId || null,
+    inventoryUploadedAt: uploadedAt,
+    inventoryUploadedBy: uploadedBy
+  };
+}
+
+function applyLatestInventorySnapshot(snapshot, opts = {}){
+  if(!snapshot || !Array.isArray(snapshot.inventory) || !snapshot.inventory.length) return;
+  S.inventory = snapshot.inventory.map(row=>({...row}));
+  S.inventory.forEach(calcDaysSupply);
+  S.invLastUpload = snapshot.uploadedAt ? new Date(snapshot.uploadedAt).toLocaleString('zh-CN') : S.invLastUpload;
+  updateSharedMetaFromSnapshot(snapshot);
+  COLLAB.latest = snapshot;
+  if(opts.persist !== false) scheduleSave();
+  renderAll();
+}
+
+async function fetchCollabJson(path, init){
+  const url = collabApiUrl(path);
+  if(!url) throw new Error('本地文件预览不支持在线协作接口，请使用 Netlify 线上地址');
+  const res = await fetch(url, {
+    credentials: 'include',
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers || {})
+    }
+  });
+  if(!res.ok){
+    const text = await res.text();
+    throw new Error(text || ('请求失败：' + res.status));
+  }
+  return await res.json();
+}
+
+function openCollabAuthCard(){
+  const card = document.getElementById('collab-auth-card');
+  if(card) card.classList.remove('hidden');
+}
+function closeCollabAuthCard(){
+  const card = document.getElementById('collab-auth-card');
+  if(card) card.classList.add('hidden');
+}
+function toggleCollabAuthCard(){
+  const card = document.getElementById('collab-auth-card');
+  if(!card) return;
+  card.classList.toggle('hidden');
+}
+
+function renderCollabHistory(){
+  const el = document.getElementById('collab-history-list');
+  if(!el) return;
+  if(!COLLAB.history.length){
+    el.innerHTML = '<div class="collab-empty">暂无线上同步记录</div>';
+    return;
+  }
+  el.innerHTML = COLLAB.history.map(item=>{
+    const who = item.uploadedBy?.name || item.uploadedBy?.email || '未记录';
+    const brands = (item.source?.brands || item.summary?.brands || []).join(' / ') || '库存';
+    const when = item.uploadedAt ? new Date(item.uploadedAt).toLocaleString('zh-CN') : '—';
+    return `<div class="collab-history-item">
+      <div>
+        <strong>${item.versionId || '最新版本'}</strong>
+        <span>${who} · ${when}</span>
+        <span>${brands} · ${item.summary?.rowCount || 0} 行 · 🔴 ${item.summary?.dangerCount || 0} · 🟠 ${item.summary?.warningCount || 0}</span>
+      </div>
+      <span>${item.note || '自动同步'}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderCollabStatus(){
+  const topPill = document.getElementById('collab-topbar-pill');
+  const panelPill = document.getElementById('collab-panel-pill');
+  const authBtn = document.getElementById('collab-auth-btn');
+  const userLabel = document.getElementById('collab-user-label');
+  const panelSummary = document.getElementById('collab-panel-summary');
+  const versionLabel = document.getElementById('collab-version-label');
+  const ownerLabel = document.getElementById('collab-owner-label');
+  const rowCountLabel = document.getElementById('collab-rowcount-label');
+  const noteEl = document.getElementById('collab-sync-note');
+  const signupBtn = document.getElementById('collab-signup-btn');
+  const authNote = document.getElementById('collab-auth-note');
+
+  const latest = COLLAB.latest;
+  const version = latest?.versionId || S.shared?.inventoryVersion || 'LOCAL';
+  const owner = latest?.uploadedBy?.name || latest?.uploadedBy?.email || S.shared?.inventoryUploadedBy || '未同步';
+  const count = latest?.summary?.rowCount || (S.inventory?.length || 0);
+  const loggedIn = !!COLLAB.user;
+  const isLocalPreview = !COLLAB_API_BASE;
+
+  [topPill, panelPill].forEach(el=>{
+    if(!el) return;
+    el.className = 'collab-pill';
+    if(isLocalPreview){
+      el.classList.add('offline');
+      el.textContent = '本地预览 · 未接后端';
+    }else if(loggedIn){
+      el.textContent = '团队在线 · 已登录';
+    }else{
+      el.classList.add('warn');
+      el.textContent = '团队在线 · 未登录';
+    }
+  });
+
+  if(authBtn) authBtn.textContent = loggedIn ? '切换协作账号' : '协作登录';
+  if(userLabel) userLabel.textContent = loggedIn ? ('当前协作者：' + collabDisplayName(COLLAB.user)) : '未登录';
+  if(versionLabel) versionLabel.textContent = version;
+  if(ownerLabel) ownerLabel.textContent = owner;
+  if(rowCountLabel) rowCountLabel.textContent = String(count);
+
+  if(panelSummary){
+    if(isLocalPreview){
+      panelSummary.textContent = '当前是本地文件预览。上线后会自动读取团队共享的最新库存版本，所有协作者会看到同一份数据。';
+    }else if(latest){
+      const when = latest.uploadedAt ? new Date(latest.uploadedAt).toLocaleString('zh-CN') : '刚刚';
+      panelSummary.textContent = `团队库存当前以线上版本为准。最新一次由 ${owner} 在 ${when} 上传，所有成员打开页面都会读取这份最新数据。`;
+    }else{
+      panelSummary.textContent = '线上协作已接入，但还没有团队共享快照。首次上传后会生成可共享的最新版本。';
+    }
+  }
+
+  if(noteEl){
+    noteEl.textContent = loggedIn
+      ? '你当前可以上传库存文件并同步到团队，其他人打开线上地址会看到同一份最新数据。'
+      : '建议协作者先登录再上传。未登录时仍可本地解析，但不会写入团队共享版本。';
+  }
+  if(signupBtn && COLLAB.settings){
+    signupBtn.style.display = COLLAB.settings.disableSignup ? 'none' : 'inline-flex';
+  }
+  if(authNote && COLLAB.settings){
+    authNote.textContent = COLLAB.settings.disableSignup
+      ? '当前项目已关闭公开注册，建议你通过 Netlify Identity 的 Invite only 模式邀请协作者。'
+      : '当前项目允许前台注册。正式上线时建议切换到 Invite only，避免任何拿到网址的人都能创建协作账号。';
+  }
+  renderCollabHistory();
+}
+
+async function refreshCollabHistory(){
+  try{
+    const data = await fetchCollabJson(COLLAB_API.history);
+    COLLAB.history = Array.isArray(data.items) ? data.items : [];
+  }catch(err){
+    console.warn('history fetch failed:', err);
+  }
+  renderCollabStatus();
+}
+
+async function syncLatestInventoryFromCloud(opts = {}){
+  if(!COLLAB_API_BASE){
+    renderCollabStatus();
+    return;
+  }
+  try{
+    COLLAB.syncing = true;
+    const latest = await fetchCollabJson(COLLAB_API.latest, { method:'GET' });
+    if(latest && Array.isArray(latest.inventory) && latest.inventory.length){
+      applyLatestInventorySnapshot(latest);
+      await refreshCollabHistory();
+      if(!opts.silent) showAlert('已拉取团队最新库存版本','info');
+    }else if(!opts.silent){
+      showAlert('线上还没有库存共享快照，先上传一版即可','info');
+    }
+  }catch(err){
+    if(!opts.silent) showAlert('拉取团队数据失败：' + err.message, 'warn');
+  }finally{
+    COLLAB.syncing = false;
+    renderCollabStatus();
+  }
+}
+
+async function publishInventoryToCloud(source = {}){
+  if(!COLLAB_API_BASE){
+    renderCollabStatus();
+    return false;
+  }
+  if(!COLLAB.user){
+    renderCollabStatus();
+    openCollabAuthCard();
+    showAlert('请先登录协作账号，再把库存结果同步到团队版本', 'warn');
+    return false;
+  }
+  try{
+    const statusEl = document.getElementById('upload-status');
+    if(statusEl) statusEl.textContent = '⏳ 已解析，正在同步到团队共享版本...';
+    const snapshot = await fetchCollabJson(COLLAB_API.publish, {
+      method: 'POST',
+      body: JSON.stringify({
+        inventory: S.inventory,
+        uploadedAt: new Date().toISOString(),
+        source,
+        note: '库存模块自动同步'
+      })
+    });
+    applyLatestInventorySnapshot(snapshot);
+    await refreshCollabHistory();
+    if(statusEl){
+      statusEl.innerHTML = `✅ 已同步到团队版本 <strong>${snapshot.versionId}</strong> · ${snapshot.summary.rowCount} 行 · 🔴 断货 ${snapshot.summary.dangerCount} · 🟠 低库存 ${snapshot.summary.warningCount}`;
+    }
+    showAlert('库存最新版本已同步到团队', 'info');
+    return true;
+  }catch(err){
+    showAlert('团队同步失败：' + err.message, 'warn');
+    return false;
+  }
+}
+
+function downloadSharedInventory(){
+  const url = collabApiUrl(COLLAB_API.download);
+  if(!url){
+    showAlert('本地预览下没有线上下载接口，请使用 Netlify 线上地址', 'warn');
+    return;
+  }
+  window.open(url, '_blank');
+}
+
+async function collabLogin(){
+  if(!COLLAB.identity){
+    showAlert('登录组件尚未初始化，请稍后重试', 'warn');
+    return;
+  }
+  const email = document.getElementById('collab-email')?.value?.trim();
+  const password = document.getElementById('collab-password')?.value || '';
+  if(!email || !password){
+    showAlert('请输入邮箱和密码', 'warn');
+    return;
+  }
+  try{
+    COLLAB.user = await COLLAB.identity.login(email, password);
+    closeCollabAuthCard();
+    renderCollabStatus();
+    await syncLatestInventoryFromCloud({ silent: true });
+    showAlert('协作登录成功', 'info');
+  }catch(err){
+    showAlert('登录失败：' + (err.message || '请检查邮箱和密码'), 'warn');
+  }
+}
+
+async function collabSignup(){
+  if(!COLLAB.identity){
+    showAlert('登录组件尚未初始化，请稍后重试', 'warn');
+    return;
+  }
+  const name = document.getElementById('collab-name')?.value?.trim();
+  const email = document.getElementById('collab-email')?.value?.trim();
+  const password = document.getElementById('collab-password')?.value || '';
+  if(!email || !password){
+    showAlert('注册至少需要邮箱和密码', 'warn');
+    return;
+  }
+  try{
+    const user = await COLLAB.identity.signup(email, password, { full_name: name });
+    if(user?.emailVerified){
+      COLLAB.user = user;
+      closeCollabAuthCard();
+      showAlert('已创建协作账号并自动登录', 'info');
+    }else{
+      showAlert('协作账号已创建，请先完成邮箱验证', 'info');
+    }
+    renderCollabStatus();
+  }catch(err){
+    showAlert('注册失败：' + (err.message || '请稍后重试'), 'warn');
+  }
+}
+
+async function collabLogout(){
+  if(!COLLAB.identity){
+    showAlert('登录组件尚未初始化，请稍后重试', 'warn');
+    return;
+  }
+  try{
+    await COLLAB.identity.logout();
+    COLLAB.user = null;
+    renderCollabStatus();
+    showAlert('已退出协作账号', 'info');
+  }catch(err){
+    showAlert('退出失败：' + (err.message || '请稍后重试'), 'warn');
+  }
+}
+
+async function initCollaboration(){
+  renderCollabStatus();
+  if(!COLLAB_API_BASE){
+    return;
+  }
+  try{
+    COLLAB.identity = await import('https://esm.sh/@netlify/identity?bundle');
+    try{
+      await COLLAB.identity.handleAuthCallback();
+    }catch(err){
+      console.warn('identity callback skipped:', err);
+    }
+    try{
+      COLLAB.settings = await COLLAB.identity.getSettings();
+    }catch(err){
+      console.warn('identity settings unavailable:', err);
+    }
+    COLLAB.user = await COLLAB.identity.getUser();
+    COLLAB.identity.onAuthChange((_event, user) => {
+      COLLAB.user = user;
+      renderCollabStatus();
+    });
+    COLLAB.ready = true;
+    await syncLatestInventoryFromCloud({ silent: true });
+    await refreshCollabHistory();
+  }catch(err){
+    console.warn('collaboration init failed:', err);
+  }
+  renderCollabStatus();
 }
 function importState(e){
   const file = e.target.files[0]; if(!file) return;
@@ -3238,21 +3677,26 @@ function diagHTML(results){
 // RENDER FUNCTIONS
 // ══════════════════════════════════════════
 function renderAll(){
-  syncMetaFields();
-  renderKPIs();
-  renderPacingBars();
-  renderSiteTable();
-  renderWeeklyTable();
-  renderSkuTargetTable();
-  renderSkuPerfTable();
-  renderFunnel();
-  renderInventory();
-  renderActions();
-  renderCatalog();
+  const safeRender = (label, fn) => {
+    try{ fn(); }
+    catch(err){ console.warn(label + ' render failed:', err); }
+  };
+  safeRender('syncMetaFields', syncMetaFields);
+  safeRender('renderKPIs', renderKPIs);
+  safeRender('renderPacingBars', renderPacingBars);
+  safeRender('renderSiteTable', renderSiteTable);
+  safeRender('renderWeeklyTable', renderWeeklyTable);
+  safeRender('renderSkuTargetTable', renderSkuTargetTable);
+  safeRender('renderSkuPerfTable', renderSkuPerfTable);
+  safeRender('renderFunnel', renderFunnel);
+  safeRender('renderInventory', renderInventory);
+  safeRender('renderActions', renderActions);
+  safeRender('renderCatalog', renderCatalog);
   const diags = runDiagnostics();
-  document.getElementById('diag-panel').innerHTML = diagHTML(diags);
-  renderAlertBar(diags);
-  updateNavBadge(diags);
+  const diagPanel = document.getElementById('diag-panel');
+  if(diagPanel) diagPanel.innerHTML = diagHTML(diags);
+  safeRender('renderAlertBar', ()=>renderAlertBar(diags));
+  safeRender('updateNavBadge', ()=>updateNavBadge(diags));
   if(typeof renderAllPlatformHooks==='function') renderAllPlatformHooks();
 }
 
@@ -3391,6 +3835,7 @@ function renderPacingBars(){
 function renderSiteTable(){
   const tbody = document.getElementById('site-tbody');
   const tfoot = document.getElementById('site-tfoot');
+  if(!tbody || !tfoot) return;
   const totalTgt = totalTarget()||S.meta.totalTarget;
   tbody.innerHTML = SITES.map((site,si)=>{
     const d = S.sites[site];
@@ -3419,6 +3864,7 @@ function renderSiteTable(){
 // ─ Weekly Table ─
 function renderWeeklyTable(){
   const tbody = document.getElementById('weekly-tbody');
+  if(!tbody) return;
   tbody.innerHTML = SITES.map((site,si)=>{
     const d = S.sites[site];
     const wTgts = WEEK_PCTS.map(p=>d.target*p);
@@ -3453,6 +3899,7 @@ function skuField(id,field,val){
 
 function renderSkuTargetTable(){
   const tbody=document.getElementById('sku-target-tbody');
+  if(!tbody) return;
   const effSite = gMarket!=='all' ? gMarket : 'all';
   const effCat  = gCategory!=='all' ? gCategory : 'all';
   let skus = S.skus;
@@ -3507,6 +3954,7 @@ function skuRowClass(s){
 function filterSku(site){ renderSkuPerfTable(); }
 function renderSkuPerfTable(){
   const tbody=document.getElementById('sku-perf-tbody');
+  if(!tbody) return;
   if(!S.skus.length){tbody.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:20px">请先在「目标管理」页添加SKU</td></tr>';return;}
   const totGMV = S.skus.reduce((sum,s)=>sum+(s.actualGMV||0),0);
   tbody.innerHTML=S.skus.map((s,i)=>{
@@ -3542,6 +3990,7 @@ function renderFunnel(){
   const viz=document.getElementById('funnel-viz');
   const drops=document.getElementById('funnel-drops');
   const diagEl=document.getElementById('funnel-diag');
+  if(!tbody || !tfoot || !viz || !drops || !diagEl) return;
 
   // totals
   const totSess=S.funnel.reduce((s,p)=>Math.max(s,p.sessions),0);
@@ -3622,6 +4071,7 @@ function handleFileUpload(e,brand){
   if(!file) return;
   if(brand==='gitryin') processGitryinFile(file);
   else processInvFile(file,'gt');
+  e.target.value='';
 }
 
 // Gitryin 3C 库存解析器 — 读取「分渠道预测」垂直分区格式
@@ -3629,7 +4079,7 @@ function handleFileUpload(e,brand){
 function processGitryinFile(file){
   document.getElementById('upload-status').textContent='⏳ 正在解析 Gitryin 库存表...';
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
       const wb=XLSX.read(ev.target.result,{type:'array'});
       // Find 分渠道预测 sheet (fallback to first sheet)
@@ -3714,16 +4164,16 @@ function processGitryinFile(file){
       document.getElementById('upload-status').innerHTML=
         `✅ Gitryin 已解析 <strong>${newRows.length}</strong> 条（市场：${mkts}，总 ${S.inventory.length} 条）· 🔴 断货 ${danger} · 🟠 低库存 ${warn} · 字段：近7/30/45天可用量 · ${S.invLastUpload}`;
       renderAll();
+      await publishInventoryToCloud({ fileName:file.name, brands:['gitryin'], channels:['inventory'] });
     }catch(err){document.getElementById('upload-status').textContent='❌ 解析失败：'+err.message;}
   };
   reader.readAsArrayBuffer(file);
-  event.target.value='';
 }
 
 function processInvFile(file,brand){
   document.getElementById('upload-status').textContent='⏳ 正在解析...';
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
       const wb=XLSX.read(ev.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
@@ -3793,6 +4243,7 @@ function processInvFile(file,brand){
       const catMapped=newRows.filter(r=>r.name).length;
       document.getElementById('upload-status').innerHTML=`✅ ${brandLabel} 已解析 <strong>${newRows.length}</strong> 条（总 ${S.inventory.length} 条）· 🔴 断货 ${danger} · 🟠 低库存 ${warn} · 匹配SKU总库 ${catMapped} 条 · ${S.invLastUpload}`;
       renderAll();
+      await publishInventoryToCloud({ fileName:file.name, brands:[brand||'gt'], channels:['inventory'] });
     }catch(err){document.getElementById('upload-status').textContent='❌ 解析失败：'+err.message;}
   };
   reader.readAsArrayBuffer(file);
@@ -4829,6 +5280,7 @@ function renderAllPlatformHooks(){
     const diags = runDiagnostics();
     renderHealthScore(diags);
     updateNavBadge(diags);
+    renderCollabStatus();
     const active = document.querySelector('.page.active');
     if(active){
       const pgId=active.id.replace('page-','');
@@ -5458,9 +5910,11 @@ syncUndoRedoBtns();
 updatePeriod();
 updateSyncIndicator();
 renderAllPlatformHooks();
+renderCollabStatus();
 initNavGroups();
 initCatOps();
 switchPage('dashboard');
+initCollaboration();
 // ══════════════════════════════════════════
 // CAMPAIGN MODEL
 // ══════════════════════════════════════════
