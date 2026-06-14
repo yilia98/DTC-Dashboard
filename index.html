@@ -3276,12 +3276,40 @@ function closeCollabAuthCard(){
   const card = document.getElementById('collab-auth-card');
   if(card) card.classList.add('hidden');
 }
+function ensurePageVisible(id){
+  try{
+    switchPage(id);
+    return true;
+  }catch(err){
+    console.warn('switchPage failed, fallback to manual page reveal:', err);
+  }
+  document.querySelectorAll('.nav-sub-item').forEach(t=>t.classList.remove('active'));
+  const navEl = document.querySelector(`.nav-sub-item[data-page="${id}"]`);
+  if(navEl) navEl.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + id);
+  if(pageEl) pageEl.classList.add('active');
+  const info = (typeof PAGE_TITLES === 'object' && PAGE_TITLES && PAGE_TITLES[id])
+    ? PAGE_TITLES[id]
+    : { title: id === 'inventory' ? '库存管理' : id, sub: id === 'inventory' ? '团队协作登录' : '' };
+  const tEl = document.getElementById('main-page-title');
+  const sEl = document.getElementById('main-page-sub');
+  if(tEl) tEl.textContent = info.title;
+  if(sEl) sEl.textContent = info.sub;
+  try{
+    const nextHash = '#' + id;
+    if(location.hash !== nextHash){
+      history.replaceState(null, '', nextHash);
+    }
+  }catch(err){}
+  return false;
+}
 function openCollabAuthFlow(){
-  switchPage('inventory');
+  ensurePageVisible('inventory');
   openCollabAuthCard();
 }
 function toggleCollabAuthCard(){
-  switchPage('inventory');
+  ensurePageVisible('inventory');
   const card = document.getElementById('collab-auth-card');
   if(!card) return;
   const willOpen = card.classList.contains('hidden');
@@ -4944,6 +4972,14 @@ window.addEventListener('hashchange', ()=>{
   }
 });
 
+window.addEventListener('load', ()=>{
+  const target = getInitialPage();
+  const active = document.querySelector('.page.active');
+  if(!active || active.id !== ('page-' + target)){
+    ensurePageVisible(target);
+  }
+});
+
 // ─ Collapsible nav groups ─
 function toggleNavGroup(key){
   const body = document.getElementById('grp-'+key);
@@ -6136,17 +6172,33 @@ function updateSyncIndicator(){
 }
 
 // ─ Init ─
-loadState();
-renderAll();
-syncUndoRedoBtns();
-updatePeriod();
-updateSyncIndicator();
-renderAllPlatformHooks();
-renderCollabStatus();
-initNavGroups();
-initCatOps();
-switchPage(getInitialPage());
-initCollaboration();
+function bootstrapApp(){
+  const steps = [
+    ['loadState', () => loadState()],
+    ['renderAll', () => renderAll()],
+    ['syncUndoRedoBtns', () => syncUndoRedoBtns()],
+    ['updatePeriod', () => updatePeriod()],
+    ['updateSyncIndicator', () => updateSyncIndicator()],
+    ['renderAllPlatformHooks', () => renderAllPlatformHooks()],
+    ['renderCollabStatus', () => renderCollabStatus()],
+    ['initNavGroups', () => initNavGroups()],
+    ['initCatOps', () => initCatOps()],
+    ['switchInitialPage', () => ensurePageVisible(getInitialPage())],
+    ['initCollaboration', async () => { await initCollaboration(); }]
+  ];
+  steps.forEach(([label, fn])=>{
+    try{
+      const result = fn();
+      if(result && typeof result.then === 'function'){
+        result.catch(err => console.warn(label + ' bootstrap failed:', err));
+      }
+    }catch(err){
+      console.warn(label + ' bootstrap failed:', err);
+    }
+  });
+}
+
+bootstrapApp();
 // ══════════════════════════════════════════
 // CAMPAIGN MODEL
 // ══════════════════════════════════════════
