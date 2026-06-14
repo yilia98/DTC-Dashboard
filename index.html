@@ -315,10 +315,21 @@ tfoot td:first-child{text-align:left}
 .collab-meta-kpi-value{font-size:16px;font-weight:800;color:var(--navy)}
 .collab-meta-sub{font-size:11px;color:var(--muted);line-height:1.6}
 .collab-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.collab-admin-box{margin-top:12px;background:#f8fafc;border:1px solid #edf2f7;border-radius:10px;padding:12px}
+.collab-admin-grid{display:grid;grid-template-columns:1.2fr .9fr;gap:12px;margin-top:10px}
+.collab-admin-row{display:flex;flex-direction:column;gap:6px}
+.collab-admin-row label{font-size:11px;font-weight:700;color:var(--muted)}
+.collab-admin-row textarea,.collab-admin-row select{width:100%;border:1px solid #d0d7e2;border-radius:8px;padding:9px 10px;font-size:12px;background:#fff;outline:none}
+.collab-admin-row textarea{min-height:78px;resize:vertical}
+.collab-admin-row textarea:focus,.collab-admin-row select:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.collab-admin-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.collab-admin-note{font-size:11px;color:var(--muted);line-height:1.6}
 .collab-history-list{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto}
 .collab-history-item{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #edf2f7}
 .collab-history-item strong{display:block;font-size:12px;color:var(--navy);margin-bottom:3px}
 .collab-history-item span{display:block;font-size:11px;color:var(--muted);line-height:1.5}
+.collab-history-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.collab-history-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700;background:#eef2ff;color:#1d4ed8}
 .collab-auth-card{position:fixed;top:92px;right:28px;z-index:400;width:360px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 18px 60px rgba(15,23,42,.16);padding:18px}
 .collab-auth-card.hidden{display:none}
 .collab-auth-row{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
@@ -329,6 +340,11 @@ tfoot td:first-child{text-align:left}
 .collab-auth-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .collab-empty{font-size:12px;color:var(--muted);text-align:center;padding:24px 12px}
 .collab-sync-note{font-size:11px;color:var(--muted);margin-top:8px}
+@media (max-width: 980px){
+  .collab-panel{grid-template-columns:1fr}
+  .collab-meta-grid,.collab-admin-grid{grid-template-columns:1fr}
+  .collab-auth-card{position:static;width:auto;margin-bottom:16px}
+}
 
 /* ── Inventory cards ── */
 .inv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
@@ -862,6 +878,33 @@ tfoot td:first-child{text-align:left}
         <button class="btn btn-blue btn-sm" onclick="syncLatestInventoryFromCloud()">拉取团队最新</button>
         <button class="btn btn-outline btn-sm" onclick="downloadSharedInventory()">下载最新数据</button>
         <button class="btn btn-ghost btn-sm" onclick="toggleCollabAuthCard()">登录 / 切换账号</button>
+      </div>
+      <div class="collab-admin-box">
+        <div class="collab-card-title" style="margin-bottom:0">
+          <strong>管理员发布与回滚</strong>
+          <span class="collab-history-badge">仅受控账号可操作</span>
+        </div>
+        <div class="collab-admin-grid">
+          <div class="collab-admin-row">
+            <label for="collab-publish-note">本次发布说明</label>
+            <textarea id="collab-publish-note" placeholder="例如：6/14 晚间补录 US + CA 库存，修正 Gitryin 3C 预测表。"></textarea>
+            <div class="collab-admin-actions">
+              <button class="btn btn-blue btn-sm" onclick="publishCurrentInventoryToCloud()">发布当前库存为团队版本</button>
+              <button class="btn btn-outline btn-sm" onclick="clearCollabPublishNote()">清空说明</button>
+            </div>
+          </div>
+          <div class="collab-admin-row">
+            <label for="collab-rollback-select">选择历史版本</label>
+            <select id="collab-rollback-select">
+              <option value="">暂无可回滚版本</option>
+            </select>
+            <div class="collab-admin-actions">
+              <button class="btn btn-outline btn-sm" onclick="previewInventoryVersion()">预览该版本</button>
+              <button class="btn btn-ghost btn-sm" onclick="restoreInventoryVersion()">回滚为当前线上版本</button>
+            </div>
+            <div class="collab-admin-note" id="collab-admin-note">团队成员可以上传和查看最新数据；UI、页面结构和功能迭代仍然只通过你的 GitHub + Netlify 发布链路生效。</div>
+          </div>
+        </div>
       </div>
       <div class="collab-sync-note" id="collab-sync-note">库存表上传后会自动同步到团队版本。页面样式、功能和结构仍只通过 GitHub + Netlify 发布更新。</div>
     </div>
@@ -3094,7 +3137,9 @@ const COLLAB_API = {
   latest: '/api/inventory/latest',
   history: '/api/inventory/history',
   publish: '/api/inventory/publish',
-  download: '/api/inventory/download'
+  download: '/api/inventory/download',
+  version: '/api/inventory/version',
+  restore: '/api/inventory/restore'
 };
 const COLLAB = {
   identity: null,
@@ -3103,7 +3148,8 @@ const COLLAB = {
   settings: null,
   latest: null,
   history: [],
-  syncing: false
+  syncing: false,
+  previewVersionId: null
 };
 
 const CAT_MAP = {
@@ -3230,26 +3276,62 @@ function toggleCollabAuthCard(){
   card.classList.toggle('hidden');
 }
 
+function getCollabPublishNote(){
+  return document.getElementById('collab-publish-note')?.value?.trim() || '';
+}
+
+function clearCollabPublishNote(){
+  const el = document.getElementById('collab-publish-note');
+  if(el) el.value = '';
+}
+
+function renderCollabRollbackOptions(){
+  const select = document.getElementById('collab-rollback-select');
+  if(!select) return;
+  if(!COLLAB.history.length){
+    select.innerHTML = '<option value="">暂无可回滚版本</option>';
+    return;
+  }
+  const currentValue = select.value;
+  select.innerHTML = COLLAB.history.map(item=>{
+    const who = item.uploadedBy?.name || item.uploadedBy?.email || '未记录';
+    const when = item.uploadedAt ? new Date(item.uploadedAt).toLocaleString('zh-CN') : '—';
+    const note = item.note ? ` · ${item.note}` : '';
+    return `<option value="${item.versionId}">${item.versionId} · ${who} · ${when}${note}</option>`;
+  }).join('');
+  if(currentValue && COLLAB.history.some(item=>item.versionId === currentValue)){
+    select.value = currentValue;
+  }
+}
+
 function renderCollabHistory(){
   const el = document.getElementById('collab-history-list');
   if(!el) return;
   if(!COLLAB.history.length){
     el.innerHTML = '<div class="collab-empty">暂无线上同步记录</div>';
+    renderCollabRollbackOptions();
     return;
   }
   el.innerHTML = COLLAB.history.map(item=>{
     const who = item.uploadedBy?.name || item.uploadedBy?.email || '未记录';
     const brands = (item.source?.brands || item.summary?.brands || []).join(' / ') || '库存';
     const when = item.uploadedAt ? new Date(item.uploadedAt).toLocaleString('zh-CN') : '—';
+    const rollbackText = item.source?.rollbackFrom ? `回滚自 ${item.source.rollbackFrom}` : '手动/自动发布';
     return `<div class="collab-history-item">
       <div>
         <strong>${item.versionId || '最新版本'}</strong>
         <span>${who} · ${when}</span>
         <span>${brands} · ${item.summary?.rowCount || 0} 行 · 🔴 ${item.summary?.dangerCount || 0} · 🟠 ${item.summary?.warningCount || 0}</span>
+        <span>${rollbackText}</span>
       </div>
-      <span>${item.note || '自动同步'}</span>
+      <div class="collab-history-actions">
+        <span>${item.note || '自动同步'}</span>
+        <button class="btn btn-outline btn-sm" onclick="previewInventoryVersion('${item.versionId}')">预览</button>
+        <button class="btn btn-ghost btn-sm" onclick="restoreInventoryVersion('${item.versionId}')">回滚</button>
+      </div>
     </div>`;
   }).join('');
+  renderCollabRollbackOptions();
 }
 
 function renderCollabStatus(){
@@ -3264,6 +3346,7 @@ function renderCollabStatus(){
   const noteEl = document.getElementById('collab-sync-note');
   const signupBtn = document.getElementById('collab-signup-btn');
   const authNote = document.getElementById('collab-auth-note');
+  const adminNote = document.getElementById('collab-admin-note');
 
   const latest = COLLAB.latest;
   const version = latest?.versionId || S.shared?.inventoryVersion || 'LOCAL';
@@ -3316,6 +3399,11 @@ function renderCollabStatus(){
       ? '当前项目已关闭公开注册，建议你通过 Netlify Identity 的 Invite only 模式邀请协作者。'
       : '当前项目允许前台注册。正式上线时建议切换到 Invite only，避免任何拿到网址的人都能创建协作账号。';
   }
+  if(adminNote){
+    adminNote.textContent = loggedIn
+      ? '你当前已登录受控账号，可以发布当前库存、写入说明并执行版本回滚。协作者即使能登录，也只能处理数据，不会改动页面和功能。'
+      : '只有受控账号登录后才能发布团队版本或执行回滚。团队查看和下载最新数据不需要改动平台代码。';
+  }
   renderCollabHistory();
 }
 
@@ -3352,7 +3440,27 @@ async function syncLatestInventoryFromCloud(opts = {}){
   }
 }
 
-async function publishInventoryToCloud(source = {}){
+async function previewInventoryVersion(versionId){
+  const selectedVersion = versionId || document.getElementById('collab-rollback-select')?.value;
+  if(!selectedVersion){
+    showAlert('请先选择一个历史版本', 'warn');
+    return;
+  }
+  try{
+    const snapshot = await fetchCollabJson(`${COLLAB_API.version}?versionId=${encodeURIComponent(selectedVersion)}`, { method:'GET' });
+    if(snapshot && Array.isArray(snapshot.inventory) && snapshot.inventory.length){
+      COLLAB.previewVersionId = selectedVersion;
+      applyLatestInventorySnapshot(snapshot, { persist: false });
+      const noteEl = document.getElementById('collab-publish-note');
+      if(noteEl && snapshot.note) noteEl.value = `回滚说明：基于 ${selectedVersion} · ${snapshot.note}`;
+      showAlert(`已预览版本 ${selectedVersion}，如需成为团队最新版本请点击回滚`, 'info');
+    }
+  }catch(err){
+    showAlert('版本预览失败：' + err.message, 'warn');
+  }
+}
+
+async function publishInventoryToCloud(source = {}, options = {}){
   if(!COLLAB_API_BASE){
     renderCollabStatus();
     return false;
@@ -3366,24 +3474,78 @@ async function publishInventoryToCloud(source = {}){
   try{
     const statusEl = document.getElementById('upload-status');
     if(statusEl) statusEl.textContent = '⏳ 已解析，正在同步到团队共享版本...';
+    const note = options.note ?? getCollabPublishNote() || '库存模块自动同步';
     const snapshot = await fetchCollabJson(COLLAB_API.publish, {
       method: 'POST',
       body: JSON.stringify({
         inventory: S.inventory,
         uploadedAt: new Date().toISOString(),
         source,
-        note: '库存模块自动同步'
+        note
       })
     });
     applyLatestInventorySnapshot(snapshot);
+    COLLAB.previewVersionId = null;
     await refreshCollabHistory();
     if(statusEl){
       statusEl.innerHTML = `✅ 已同步到团队版本 <strong>${snapshot.versionId}</strong> · ${snapshot.summary.rowCount} 行 · 🔴 断货 ${snapshot.summary.dangerCount} · 🟠 低库存 ${snapshot.summary.warningCount}`;
     }
+    if(!options.preserveNote) clearCollabPublishNote();
     showAlert('库存最新版本已同步到团队', 'info');
     return true;
   }catch(err){
     showAlert('团队同步失败：' + err.message, 'warn');
+    return false;
+  }
+}
+
+async function publishCurrentInventoryToCloud(){
+  if(!Array.isArray(S.inventory) || !S.inventory.length){
+    showAlert('当前还没有库存数据，先上传并解析库存文件', 'warn');
+    return;
+  }
+  const source = {
+    fileName: COLLAB.latest?.source?.fileName || 'manual-publish',
+    brands: COLLAB.latest?.source?.brands || ['inventory'],
+    channels: ['inventory', 'manual']
+  };
+  await publishInventoryToCloud(source, {
+    note: getCollabPublishNote() || '管理员手动发布库存版本'
+  });
+}
+
+async function restoreInventoryVersion(versionId){
+  if(!COLLAB_API_BASE){
+    renderCollabStatus();
+    return false;
+  }
+  if(!COLLAB.user){
+    openCollabAuthCard();
+    showAlert('请先登录受控账号，再执行版本回滚', 'warn');
+    return false;
+  }
+  const selectedVersion = versionId || document.getElementById('collab-rollback-select')?.value;
+  if(!selectedVersion){
+    showAlert('请先选择一个要回滚的版本', 'warn');
+    return false;
+  }
+  try{
+    const snapshot = await fetchCollabJson(COLLAB_API.restore, {
+      method: 'POST',
+      body: JSON.stringify({
+        versionId: selectedVersion,
+        uploadedAt: new Date().toISOString(),
+        note: getCollabPublishNote() || `回滚到 ${selectedVersion}`
+      })
+    });
+    applyLatestInventorySnapshot(snapshot);
+    COLLAB.previewVersionId = null;
+    await refreshCollabHistory();
+    clearCollabPublishNote();
+    showAlert(`已回滚并发布版本 ${selectedVersion}`, 'info');
+    return true;
+  }catch(err){
+    showAlert('版本回滚失败：' + err.message, 'warn');
     return false;
   }
 }
