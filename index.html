@@ -3522,7 +3522,7 @@ async function publishInventoryToCloud(source = {}, options = {}){
   try{
     const statusEl = document.getElementById('upload-status');
     if(statusEl) statusEl.textContent = '⏳ 已解析，正在同步到团队共享版本...';
-    const note = options.note ?? getCollabPublishNote() || '库存模块自动同步';
+    const note = options.note ?? (getCollabPublishNote() || '库存模块自动同步');
     const snapshot = await fetchCollabJson(COLLAB_API.publish, {
       method: 'POST',
       body: JSON.stringify({
