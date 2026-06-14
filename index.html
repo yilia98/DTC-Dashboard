@@ -620,7 +620,7 @@ tfoot td:first-child{text-align:left}
     <div class="topbar-right">
       <span style="font-size:11px;color:var(--muted)" id="topbar-period"><!-- period --></span>
       <span class="collab-pill offline" id="collab-topbar-pill">团队模式 · 本地</span>
-      <button class="btn btn-ghost btn-sm" id="collab-auth-btn" onclick="toggleCollabAuthCard()">协作登录</button>
+      <button class="btn btn-ghost btn-sm" id="collab-auth-btn" onclick="openCollabAuthFlow()">协作登录</button>
       <button class="btn btn-blue btn-sm" onclick="switchPage('inventory')">⬆ 上传数据</button>
     </div>
   </div>
@@ -877,7 +877,7 @@ tfoot td:first-child{text-align:left}
       <div class="collab-actions">
         <button class="btn btn-blue btn-sm" onclick="syncLatestInventoryFromCloud()">拉取团队最新</button>
         <button class="btn btn-outline btn-sm" onclick="downloadSharedInventory()">下载最新数据</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleCollabAuthCard()">登录 / 切换账号</button>
+        <button class="btn btn-ghost btn-sm" onclick="openCollabAuthFlow()">登录 / 切换账号</button>
       </div>
       <div class="collab-admin-box">
         <div class="collab-card-title" style="margin-bottom:0">
@@ -936,8 +936,10 @@ tfoot td:first-child{text-align:left}
       <label for="collab-password">密码</label>
       <input id="collab-password" type="password" placeholder="请输入密码">
     </div>
+    <div class="collab-auth-note" style="margin:-2px 0 10px 0">如果你只知道协作邮箱，不知道密码，可以直接点击“找回密码”发送重置邮件。</div>
     <div class="collab-auth-actions">
       <button class="btn btn-blue btn-sm" onclick="collabLogin()">登录</button>
+      <button class="btn btn-ghost btn-sm" onclick="collabResetPassword()">找回密码</button>
       <button class="btn btn-outline btn-sm" id="collab-signup-btn" onclick="collabSignup()">注册协作者</button>
       <button class="btn btn-ghost btn-sm" onclick="collabLogout()">退出登录</button>
     </div>
@@ -3265,15 +3267,33 @@ async function fetchCollabJson(path, init){
 function openCollabAuthCard(){
   const card = document.getElementById('collab-auth-card');
   if(card) card.classList.remove('hidden');
+  const emailEl = document.getElementById('collab-email');
+  if(emailEl && !emailEl.value && COLLAB.user?.email){
+    emailEl.value = COLLAB.user.email;
+  }
 }
 function closeCollabAuthCard(){
   const card = document.getElementById('collab-auth-card');
   if(card) card.classList.add('hidden');
 }
+function openCollabAuthFlow(){
+  switchPage('inventory');
+  openCollabAuthCard();
+}
 function toggleCollabAuthCard(){
+  switchPage('inventory');
   const card = document.getElementById('collab-auth-card');
   if(!card) return;
+  const willOpen = card.classList.contains('hidden');
   card.classList.toggle('hidden');
+  if(willOpen){
+    openCollabAuthCard();
+  }
+}
+
+function collabIdentityBase(){
+  const raw = COLLAB.settings?.url || COLLAB.settings?.api?.url || COLLAB.settings?.apiUrl || `${location.origin}/.netlify/identity`;
+  return String(raw || `${location.origin}/.netlify/identity`).replace(/\/+$/,'');
 }
 
 function getCollabPublishNote(){
@@ -3578,6 +3598,38 @@ async function collabLogin(){
     showAlert('协作登录成功', 'info');
   }catch(err){
     showAlert('登录失败：' + (err.message || '请检查邮箱和密码'), 'warn');
+  }
+}
+
+async function collabResetPassword(){
+  if(!COLLAB_API_BASE){
+    showAlert('请在线上地址使用找回密码功能，本地预览不会发送重置邮件', 'warn');
+    return;
+  }
+  const email = document.getElementById('collab-email')?.value?.trim();
+  if(!email){
+    showAlert('请先输入协作邮箱，再发送重置密码邮件', 'warn');
+    return;
+  }
+  try{
+    if(COLLAB.identity && typeof COLLAB.identity.recover === 'function'){
+      await COLLAB.identity.recover(email);
+    }else if(COLLAB.identity && typeof COLLAB.identity.requestPasswordRecovery === 'function'){
+      await COLLAB.identity.requestPasswordRecovery(email);
+    }else{
+      const res = await fetch(`${collabIdentityBase()}/recover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if(!res.ok){
+        const text = await res.text();
+        throw new Error(text || '重置邮件发送失败');
+      }
+    }
+    showAlert(`重置密码邮件已发送到 ${email}，请去邮箱完成设置`, 'info');
+  }catch(err){
+    showAlert('发送重置邮件失败：' + (err.message || '请稍后重试'), 'warn');
   }
 }
 
@@ -4871,8 +4923,26 @@ function switchPage(id){
   if(id==='reports') renderReportsPage();
   if(id==='campaign') renderCampaignPage();
   if(id==='category'){ initCatOps(); renderCatOpsPage(); }
+  try{
+    const nextHash = '#' + id;
+    if(location.hash !== nextHash){
+      history.replaceState(null, '', nextHash);
+    }
+  }catch(err){}
 }
 function switchTab(id){ switchPage(id); }
+
+function getInitialPage(){
+  const hash = (location.hash || '').replace(/^#/,'').trim();
+  return PAGE_TITLES[hash] ? hash : 'dashboard';
+}
+
+window.addEventListener('hashchange', ()=>{
+  const hash = (location.hash || '').replace(/^#/,'').trim();
+  if(hash && PAGE_TITLES[hash]){
+    switchPage(hash);
+  }
+});
 
 // ─ Collapsible nav groups ─
 function toggleNavGroup(key){
@@ -6075,7 +6145,7 @@ renderAllPlatformHooks();
 renderCollabStatus();
 initNavGroups();
 initCatOps();
-switchPage('dashboard');
+switchPage(getInitialPage());
 initCollaboration();
 // ══════════════════════════════════════════
 // CAMPAIGN MODEL
