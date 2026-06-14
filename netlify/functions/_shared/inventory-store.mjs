@@ -61,6 +61,11 @@ export async function getInventoryHistory() {
   return (await store.get(HISTORY_KEY, { type: "json" })) || [];
 }
 
+export async function getInventoryVersion(versionId) {
+  if (!versionId) return null;
+  return await store.get(`${VERSION_PREFIX}${versionId}`, { type: "json" });
+}
+
 export async function saveInventorySnapshot({
   inventory = [],
   uploadedBy,
